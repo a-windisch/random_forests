@@ -1,0 +1,77 @@
+---
+title: "Weight Lifting Exercise Prediction Model"
+author: '[<span style="color:blue">Andreas Windisch</span>](https://www.linkedin.com/in/andreas-windisch-physics/)'
+date: "September 19, 2018"
+output:
+  html_document: default
+--- 
+
+
+## 0 Synopsis
+In this analysis I will use a [data set](http://groupware.les.inf.puc-rio.br/har) of weight lifting exercises performed in different ways. The goal of the study is to predict the manner in which the exercise was performed, stored in the 'classe' variable in the data set.     
+
+## 1 Loading and cleaning the data
+
+```{r, echo = TRUE, cache = TRUE}
+  setwd("/home/andreas/GitHub/random_forests/")
+  training <- read.csv("pml-training.csv")
+  testing  <- read.csv("pml-testing.csv")
+  dim(training)
+  dim(testing)
+  
+  #count number of NAs for each column in training set and store variable
+  na_count <-sapply(training, function(y) sum(length(which(is.na(y)))))
+
+  #delete those columns (which all have a high fraction of NAs)
+  delnames <- names(na_count[na_count!=0])
+  training <- training[, !(names(training) %in% delnames)]
+  testing  <- testing[,  !(names(testing)  %in% delnames)]
+  
+  #now do the same thing for the testing set
+  na_count <-sapply(testing, function(y) sum(length(which(is.na(y)))))
+
+  delnames <- names(na_count[na_count!=0])
+  training <- training[, !(names(training) %in% delnames)]
+  testing  <- testing[,  !(names(testing)  %in% delnames)]
+
+  #finally, remove columns 1 to 6, since they don't provide any relevant information (names, timestamp, etc)
+  training <- training[,7:dim(training)[2]]
+  testing  <- testing[,7:dim(testing)[2]]
+  
+  #remaining dimensions
+  dim(training)
+  dim(testing)
+```
+
+## 2 Building the model
+
+Now that we have cleaned up the data set, we can start building a model using the package caret. As discussed in class, random forests are considered as one of the most powerful approaches, which is the one that I will use for this analysis. Since the testing set will be used for grading in this exercise, I will split the training set into two sets, train and test.
+```{r, echo = TRUE, cache = TRUE}
+library(caret)
+set.seed(1)
+inTrain <- createDataPartition(y=training$classe,p=0.7,list=FALSE)
+train <- training[inTrain,]
+test  <- training[-inTrain,]
+```
+Now we are ready to train the random forest model using cross validation and 5 folds.
+```{r, echo = TRUE, cache = TRUE}
+tc <- trainControl(method="cv",number=5)
+#n <- names(train)
+#f <- as.formula(paste("classe ~", paste(n[!n %in% "classe"], collapse = "+")))
+mod <- train(classe~.,data=train,method="rf",trControl=tc)
+```
+
+## 3 Predictions with the model
+After training the model, we can use it to make predictions. Let us first apply it to the test data drawn from the original training data.
+```{r, echo = TRUE, cache = TRUE}
+pred<-predict(mod, newdata=test)
+print(confusionMatrix(test$classe,pred)$overall[1])
+```
+We get an astonishing accuracy of 99.9 percent.
+
+## 4 Prediction on the grading test set
+Here is the prediction for the grading quiz.
+```{r, echo = TRUE, cache = TRUE}
+pred2<-predict(mod, newdata=testing)
+print(pred2)
+```
